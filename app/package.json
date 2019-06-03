@@ -1,0 +1,17 @@
+{
+  "name": "best-blog",
+  "version": "1.0.4",
+  "description": "rebuild best-blog by electron",
+  "main": "dist/main/main.js",
+  "author": {
+    "name": "huangzhensheng"
+  },
+  "dependencies": {
+    "electron-config": "^1.0.0",
+    "electron-debug": "^2.2.0",
+    "electron-is": "^2.4.1",
+    "electron-log": "^2.2.14",
+    "electron-updater": "^4.0.6"
+  },
+  "devDependencies": {}
+}
