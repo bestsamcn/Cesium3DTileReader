@@ -5,16 +5,16 @@ import log from 'electron-log';
 
 function getTemplate(updator?:any) {
 	return [
-		{
-			label: '刷新',
-			role: 'reload',
-		},
-		{
-			label: '更新',
-			click(){
-				updator!.doUpdate(false);
-			},
-		},
+		// {
+		// 	label: '刷新',
+		// 	role: 'reload',
+		// },
+		// {
+		// 	label: '更新',
+		// 	click(){
+		// 		updator!.doUpdate(false);
+		// 	},
+		// },
 	]
 }
 

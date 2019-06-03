@@ -1,7 +1,7 @@
 {
-  "name": "best-blog",
+  "name": "cesium-3dtile-reader",
   "version": "1.0.4",
-  "description": "rebuild best-blog by electron",
+  "description": "cesium 3dtile reader",
   "main": "dist/main/main.js",
   "author": {
     "name": "huangzhensheng"

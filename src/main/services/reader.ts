@@ -118,7 +118,7 @@ const getJSONTree = (tree:any[], url:string, parent?:any)=>{
 
 		//读取b3dm,cmpt数据
 		if(!(node.url as any).includes('.json')){
-			let ids = getB3DMData(output+node.url);
+			let ids = getB3DMData(input+node.url);
 			node.ids = ids;
 		}
 		
@@ -151,15 +151,13 @@ const getJSONTree = (tree:any[], url:string, parent?:any)=>{
 export const start = (_input:string, _output:string, _filename:string='tileset.json', _outputFilename:string='tree.json')=>{
 	if(!_input || !_output || !_filename) return '路径不存在';
 	input = _input, output = _output, filename = _filename;
-	if(!filename.includes('.json')) filename +='.json';
-	if(!_outputFilename.includes('.json')) _outputFilename +='.json';
-	if(input.charAt(input.length-1) != '/') input +='/';
-	if(output.charAt(input.length-1) != '/') output +='/';
 	(global.win as any).webContents.send('reader-start');
 	getJSONTree(tree, filename);
+	if(!/.*(\.json)$/gim.test(_outputFilename)) _outputFilename+='.json';
 
 	let str = global.JSON.stringify(tree, null, "\t");
 	fs.writeFileSync(output+_outputFilename, str);
+	input ='', output='', filename ='', tree.length=0;
 	(global.win as any).webContents.send('reader-finish');
 }
 

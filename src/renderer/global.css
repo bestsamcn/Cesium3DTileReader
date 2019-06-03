@@ -355,7 +355,6 @@ body,
 	}
 	.router-view {
 		padding: 0;
-		padding-top: 69px;
 	}
 	::-webkit-scrollbar-button:vertical {
 		display: none;
