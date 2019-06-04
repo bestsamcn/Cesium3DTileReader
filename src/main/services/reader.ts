@@ -64,12 +64,13 @@ const getJSONTree = (tree:any[], url:string, parent?:any)=>{
 	
 	//文件转json
 	let tile = readFile(input+url);
+	console.log(tile, 'tile')
 	let treeNode = new TreeNode();
 	let transform = tile.root.transform;
 	treeNode.transform =  transform && Matrix4.unpack(transform) ||  Matrix4.clone(Matrix4.IDENTITY);
 	treeNode.type = !!parent && 'e-root' || 'root';
-	treeNode.box = tile.root.content.boundingVolume.box;
-	treeNode.url = tile.root.content.url;
+	treeNode.box = tile.root.content && tile.root.content.boundingVolume && tile.root.content.boundingVolume.box || tile.root.boundingVolume.box;
+	treeNode.url = tile.root.content && tile.root.content.url && tile.root.content.url || '';
 	treeNode.children = [];
 	var parentTransform = parent ? parent.computedTransform : Matrix4.IDENTITY;
 	treeNode.computedTransform = Matrix4.multiply(parentTransform, treeNode.transform, new Matrix4());
@@ -80,7 +81,7 @@ const getJSONTree = (tree:any[], url:string, parent?:any)=>{
 		treeNode.leaf = true;
 	}
 	treeNode.level = level;
-	if(!(treeNode.url as any).includes('.json')){
+	if(!!treeNode.url && !(treeNode.url as any).includes('.json')){
 		let ids = getB3DMData(input+treeNode.url);
 		treeNode.ids = ids;
 	}
@@ -93,11 +94,10 @@ const getJSONTree = (tree:any[], url:string, parent?:any)=>{
 	 * @param  {array} nodes              需要递归的节点树
 	 */
 	const loop = (parent:TreeNode, parentNodeChildren:TreeNode[], nodes:any[])=>nodes.map(item=>{
-		
 		let node = new TreeNode();
 		node.box = item.content.boundingVolume && item.content.boundingVolume.box || item.boundingVolume.box;
 		node.children = [];
-		node.url = item.content.url;
+		node.url = item.content.url || item.content.uri || '';
 		node.level = level;
 		node.type = 'node';
 		node.leaf = false;
@@ -110,7 +110,7 @@ const getJSONTree = (tree:any[], url:string, parent?:any)=>{
 
 
 		//读取外部json
-		if((node.url as any).includes('.json')){
+		if(node.url && (node.url as any).includes('.json')){
 			level++;
 			getJSONTree(node.children, (node.url as any), node);
 			level--;
@@ -152,13 +152,19 @@ export const start = (_input:string, _output:string, _filename:string='tileset.j
 	if(!_input || !_output || !_filename) return '路径不存在';
 	input = _input, output = _output, filename = _filename;
 	(global.win as any).webContents.send('reader-start');
-	getJSONTree(tree, filename);
-	if(!/.*(\.json)$/gim.test(_outputFilename)) _outputFilename+='.json';
+	try{
+		getJSONTree(tree, filename);
+		if(!/.*(\.json)$/gim.test(_outputFilename)) _outputFilename+='.json';
 
-	let str = global.JSON.stringify(tree, null, "\t");
-	fs.writeFileSync(output+_outputFilename, str);
-	input ='', output='', filename ='', tree.length=0;
-	(global.win as any).webContents.send('reader-finish');
+		let str = global.JSON.stringify(tree, null, "\t");
+		fs.writeFileSync(output+_outputFilename, str);
+		input ='', output='', filename ='', tree.length=0;
+		(global.win as any).webContents.send('reader-success');
+	}catch(e){
+		(global.win as any).webContents.send('reader-error', e);
+	}
+	
+	
 }
 
 

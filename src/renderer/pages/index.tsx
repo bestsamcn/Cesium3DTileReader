@@ -33,6 +33,7 @@ export default class Home extends Base<IProps, {}> {
         path:'',
         filename:'',
         outputFilename:'model',
+        isSelectDisabled:false
     }
 
     //选择
@@ -61,7 +62,6 @@ export default class Home extends Base<IProps, {}> {
     startReader(){
         const { reader } = remote.getGlobal('services');
         const { input, output, filename, outputFilename } = this.state;
-        console.log(input, output, filename, outputFilename, 'asdfasdf')
         reader.start(input, output, filename, outputFilename);
     }
     componentDidMount(){
@@ -69,12 +69,17 @@ export default class Home extends Base<IProps, {}> {
             ipcRenderer.on('reader-start', ()=>{
                 this.props.dispatch({type:'global/setLoading', params:{isLoading:true}});
             });
-            ipcRenderer.on('reader-finish', ()=>{
+            ipcRenderer.on('reader-success', ()=>{
                 this.props.dispatch({type:'global/setLoading', params:{isLoading:false}});
+                this.props.dispatch({type:'global/setToast', params:{msg:'读取成功'}});
                 this.setState({input:'', output:'', path:'', filename:'', outputFilename:''});
             });
-        },500)
-        
+
+            ipcRenderer.on('reader-error', (e:any)=>{
+                this.props.dispatch({type:'global/setLoading', params:{isLoading:false}});
+                this.props.dispatch({type:'global/setToast', params:{msg:'读取出错'}});
+            });
+        },1000);
     }
     onChange(e:any){
         this.setState({outputFilename:e.target.value});
