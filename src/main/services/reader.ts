@@ -1,5 +1,5 @@
 import { readFile, textDecoder, toArrayBuffer, getB3DMData, createBox } from "../utils";
-const { Matrix4, Cartesian3, Matrix3, TileOrientedBoundingBox } = require('cesium');
+import { Matrix4, Cartesian3, Matrix3, TileOrientedBoundingBox } from 'cesium';
 import { ipcMain } from 'electron';
 
 const fs = require("fs");

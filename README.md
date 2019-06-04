@@ -12,12 +12,12 @@
 	```
 	若是全局安装后，找不到模块，可以使用`npm link electron`映射, 一个问题electron全局安装，可能出现某些接口异常
 
-2. 根目录安装依赖
+2. 根目录安装renderer依赖
 	```
 	npm install
 	```
 
-3. cd到app目录安装依赖
+3. cd到app目录安装main线程依赖
 	```
 	npm install
 	```
