@@ -33,7 +33,9 @@ export default class Home extends Base<IProps, {}> {
         path:'',
         filename:'',
         outputFilename:'model',
-        isSelectDisabled:false
+        isSelectDisabled:false,
+        // transform:'1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1',
+        transform:'',
     }
 
     //选择
@@ -61,8 +63,15 @@ export default class Home extends Base<IProps, {}> {
 
     startReader(){
         const { reader } = remote.getGlobal('services');
-        const { input, output, filename, outputFilename } = this.state;
-        reader.start(input, output, filename, outputFilename);
+        const { input, output, filename, outputFilename, transform } = this.state;
+        const treg = /^$|(((\-?\d+(\.\d+)?)\,){15}(\-?\d+(\.\d+)?)$)/gi
+        if(!treg.test(transform)){
+            return this.props.dispatch({type:'global/setToast', params:{msg:'变换矩阵格式错误'}});
+        }
+        if(!input || !output || !filename || !outputFilename){
+            return this.props.dispatch({type:'global/setToast', params:{msg:'有未填选项'}});
+        }
+        reader.start(input, output, filename, outputFilename, transform);
     }
     componentDidMount(){
         setTimeout(()=>{
@@ -72,7 +81,7 @@ export default class Home extends Base<IProps, {}> {
             ipcRenderer.on('reader-success', ()=>{
                 this.props.dispatch({type:'global/setLoading', params:{isLoading:false}});
                 this.props.dispatch({type:'global/setToast', params:{msg:'读取成功'}});
-                this.setState({input:'', output:'', path:'', filename:'', outputFilename:''});
+                this.setState({input:'', output:'', path:'', filename:''});
             });
 
             ipcRenderer.on('reader-error', (e:any)=>{
@@ -84,13 +93,26 @@ export default class Home extends Base<IProps, {}> {
     onChange(e:any){
         this.setState({outputFilename:e.target.value});
     }
+    onTransformChange(e:any){
+        let transform = e.target.value || '';
+        this.setState({transform});
+        
+    }
     render(){
-        const { input, output, filename, outputFilename, path } = this.state;
+        const { input, output, filename, outputFilename, path, transform } = this.state;
+        const treg = /^$|(((\-?\d+(\.\d+)?)\,){15}(\-?\d+(\.\d+)?)$)/gim;
         return (
             <div className={style["home"]}>
                 <div className={style.list}>
                     <ul>
-                        <li><span className={style['span']}>产出文件名称：</span><Input title={outputFilename} onChange={this.onChange.bind(this)} value={outputFilename} placeholder="输入文件名"/></li>
+                        <li>
+                            <span className={style['span']}>产出文件名称：</span>
+                            <Input title={outputFilename} style={{borderColor:!outputFilename ? 'red' : ''}} onChange={this.onChange.bind(this)} value={outputFilename} placeholder="输入文件名"/>
+                        </li>
+                        <li>
+                            <span className={style['span']}>变换矩阵：</span>
+                            <Input title={transform} style={{borderColor:!treg.test(transform) ? 'red' : ''}} onChange={this.onTransformChange.bind(this)} value={transform} placeholder="1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1"/>
+                        </li>
                         <li className={style['s-width']}>
                             <span className={style['span']}>输入根文件：</span>
                             <Input disabled title={input} value={path} placeholder="选择输入根文件"/>
@@ -102,7 +124,7 @@ export default class Home extends Base<IProps, {}> {
                             <Button onClick={this.openDialog.bind(this, 'output')}>浏览</Button>
                         </li>
                     </ul>
-                    <Button onClick={this.startReader.bind(this)} style={{width:300}} disabled={!path  || !outputFilename || !output } type="primary">开始</Button>
+                    <Button onClick={this.startReader.bind(this)} style={{width:300}} disabled={!path  || !outputFilename || !output} type="primary">开始</Button>
                 </div>
             </div>
         )

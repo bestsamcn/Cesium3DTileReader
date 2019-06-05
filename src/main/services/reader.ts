@@ -60,13 +60,13 @@ class TreeNode {
  * @param  {string} url    	json地址
  * @param  {object} parent 父级
  */
-const getJSONTree = (tree:any[], url:string, parent?:any)=>{
+const getJSONTree = (tree:any[], url:string, parent?:any, _transform?:any)=>{
 	
 	//文件转json
 	let tile = readFile(input+url);
 	console.log(tile, 'tile')
 	let treeNode = new TreeNode();
-	let transform = tile.root.transform;
+	let transform = _transform && _transform.split(',') || tile.root.transform;
 	treeNode.transform =  transform && Matrix4.unpack(transform) ||  Matrix4.clone(Matrix4.IDENTITY);
 	treeNode.type = !!parent && 'e-root' || 'root';
 	treeNode.box = tile.root.content && tile.root.content.boundingVolume && tile.root.content.boundingVolume.box || tile.root.boundingVolume.box;
@@ -148,12 +148,12 @@ const getJSONTree = (tree:any[], url:string, parent?:any)=>{
  * 读取
  * @type {[type]}
  */
-export const start = (_input:string, _output:string, _filename:string='tileset.json', _outputFilename:string='tree.json')=>{
+export const start = (_input:string, _output:string, _filename:string='tileset.json', _outputFilename:string='tree.json', _transform:string)=>{
 	if(!_input || !_output || !_filename) return '路径不存在';
 	input = _input, output = _output, filename = _filename;
 	(global.win as any).webContents.send('reader-start');
 	try{
-		getJSONTree(tree, filename);
+		getJSONTree(tree, filename, '', _transform);
 		if(!/.*(\.json)$/gim.test(_outputFilename)) _outputFilename+='.json';
 
 		let str = global.JSON.stringify(tree, null, "\t");
