@@ -1,6 +1,6 @@
 {
   "name": "cesium-3dtile-reader",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "cesium 3dtile reader",
   "main": "dist/main/main.js",
   "author": {

@@ -36,15 +36,17 @@ export default class Home extends Base<IProps, {}> {
         isSelectDisabled:false,
         // transform:'1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1',
         transform:'',
+        appDataFilename:''
     }
 
     //选择
     async openDialog(type:string){
+
         let files = await remote.dialog.showOpenDialog({
             title: type == 'input' ? '选择根文件' : '选择输出文件夹',
-            properties: type == 'input' ? ['openFile'] : ['openDirectory'],
+            properties: (type == 'input' || type == 'appDataFilename') ? ['openFile'] : ['openDirectory'],
             defaultPath: '/Users/<username>/Documents/',
-            filters:type == 'input' ? [{name: 'json', extensions:['json']}] : [],
+            filters:(type == 'input' || type == 'appDataFilename') ? [{name: 'json', extensions:['json']}] : [],
             buttonLabel: "选择"
         });
         if(files && files.length){
@@ -57,13 +59,15 @@ export default class Home extends Base<IProps, {}> {
                 this.setState({path, input, filename});
             }else if(type === 'output'){
                 this.setState({output:files[0]+'/'}); 
+            }else if(type === 'appDataFilename'){
+                this.setState({appDataFilename:files[0]}); 
             }
         }
     }
 
     startReader(){
         const { reader } = remote.getGlobal('services');
-        const { input, output, filename, outputFilename, transform } = this.state;
+        const { input, output, filename, outputFilename, transform, appDataFilename } = this.state;
         const treg = /^$|(((\-?\d+(\.\d+)?)\,){15}(\-?\d+(\.\d+)?)$)/gi
         if(!treg.test(transform)){
             return this.props.dispatch({type:'global/setToast', params:{msg:'变换矩阵格式错误'}});
@@ -71,7 +75,7 @@ export default class Home extends Base<IProps, {}> {
         if(!input || !output || !filename || !outputFilename){
             return this.props.dispatch({type:'global/setToast', params:{msg:'有未填选项'}});
         }
-        reader.start(input, output, filename, outputFilename, transform);
+        reader.start(input, output, appDataFilename, transform, filename, outputFilename);
     }
     componentDidMount(){
         setTimeout(()=>{
@@ -96,10 +100,9 @@ export default class Home extends Base<IProps, {}> {
     onTransformChange(e:any){
         let transform = e.target.value || '';
         this.setState({transform});
-        
     }
     render(){
-        const { input, output, filename, outputFilename, path, transform } = this.state;
+        const { input, output, filename, outputFilename, path, transform, appDataFilename } = this.state;
         const treg = /^$|(((\-?\d+(\.\d+)?)\,){15}(\-?\d+(\.\d+)?)$)/gim;
         return (
             <div className={style["home"]}>
@@ -117,6 +120,11 @@ export default class Home extends Base<IProps, {}> {
                             <span className={style['span']}>输入根文件：</span>
                             <Input disabled title={input} value={path} placeholder="选择输入根文件"/>
                             <Button onClick={this.openDialog.bind(this, 'input')}>浏览</Button>
+                        </li>
+                        <li className={style['s-width']}>
+                            <span className={style['span']}>appData文件：</span>
+                            <Input disabled title={appDataFilename} value={appDataFilename} placeholder="选择appData文件"/>
+                            <Button onClick={this.openDialog.bind(this, 'appDataFilename')}>浏览</Button>
                         </li>
                         <li className={style['s-width']}>
                             <span className={style['span']}>输出文件夹：</span>

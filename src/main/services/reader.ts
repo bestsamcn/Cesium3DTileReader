@@ -64,7 +64,6 @@ const getJSONTree = (tree:any[], url:string, parent?:any, _transform?:any)=>{
 	
 	//文件转json
 	let tile = readFile(input+url);
-	console.log(tile, 'tile')
 	let treeNode = new TreeNode();
 	let transform = _transform && _transform.split(',') || tile.root.transform;
 	treeNode.transform =  transform && Matrix4.unpack(transform) ||  Matrix4.clone(Matrix4.IDENTITY);
@@ -142,28 +141,56 @@ const getJSONTree = (tree:any[], url:string, parent?:any, _transform?:any)=>{
 
 // const dirs = fs.readdirSync(input);
 
+//清除多余属性
+const clearLoop = (tree:any)=>tree.forEach((item:any)=>{
+	item.transform && delete item.transform;
+	item.box && delete item.box;
+	item.url && delete item.url;
+	item.computedTransform && delete item.computedTransform;
+	if(item.children && item.children.length){
+		clearLoop(item.children);
+	}
+});
 
+class FinalData {
+	categories?:any[];
+	tileTree?:any[];
+	constructor(categories?:any[], tileTree?:any[]){
+		this.categories = categories;
+		this.tileTree = tileTree;
+	};
+}
 
 /**
  * 读取
  * @type {[type]}
  */
-export const start = (_input:string, _output:string, _filename:string='tileset.json', _outputFilename:string='tree.json', _transform:string)=>{
+export const start = (_input:string, _output:string, _appDataFilename='', _transform:string, _filename='tileset.json', _outputFilename='tree.json' )=>{
 	if(!_input || !_output || !_filename) return '路径不存在';
 	input = _input, output = _output, filename = _filename;
 	(global.win as any).webContents.send('reader-start');
 	try{
+		let finalData = new FinalData();
 		getJSONTree(tree, filename, '', _transform);
 		if(!/.*(\.json)$/gim.test(_outputFilename)) _outputFilename+='.json';
 
-		let str = global.JSON.stringify(tree, null, "\t");
+		let appData = readFile(_appDataFilename);
+		let categories = [];
+		for(let i in appData.categories){
+			categories.push({id:i, name:appData.categories[i]});
+		}
+
+		clearLoop(tree);
+
+		finalData.tileTree = tree;
+		finalData.categories = categories;
+		let str = global.JSON.stringify(finalData, null, "\t");
 		fs.writeFileSync(output+_outputFilename, str);
 		input ='', output='', filename ='', tree.length=0;
 		(global.win as any).webContents.send('reader-success');
 	}catch(e){
 		(global.win as any).webContents.send('reader-error', e);
 	}
-	
 	
 }
 

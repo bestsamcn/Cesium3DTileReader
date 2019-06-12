@@ -9,12 +9,12 @@ function getTemplate(updator?:any) {
 		// 	label: '刷新',
 		// 	role: 'reload',
 		// },
-		// {
-		// 	label: '更新',
-		// 	click(){
-		// 		updator!.doUpdate(false);
-		// 	},
-		// },
+		{
+			label: '更新',
+			click(){
+				updator!.doUpdate(false);
+			},
+		},
 	]
 }
 
