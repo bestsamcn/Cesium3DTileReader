@@ -124,7 +124,7 @@ export default class Home extends Base<IProps, {}> {
                         </li>
                         <li className={style['s-width']}>
                             <span className={style['span']}>输入根文件：</span>
-                            <Input disabled title={input} value={path} placeholder="选择输入根文件"/>
+                            <Input disabled title={input} value={path} accept=".json" placeholder="选择输入根文件"/>
                             <Button onClick={this.openDialog.bind(this, 'input')}>浏览</Button>
                         </li>
                         <li className={style['s-width']}>
