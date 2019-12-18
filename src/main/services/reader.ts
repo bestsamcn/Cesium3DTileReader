@@ -10,7 +10,8 @@ let transform = null;
 // const args = process.argv.slice(2);
 let input = '';
 let output = '';
-let filename = 'tileset'
+let filename = 'tileset';
+let formatChecked = false;
 // if(args.length < 2){
 // 	throw Error('input and output must be defined')
 // }
@@ -47,11 +48,7 @@ class TreeNode {
 	boundingSphere:any;
 	leaf?:boolean;
 	level?:number;
-	ids?:{
-		assembly:string,
-		element:string,
-		category:string
-	}
+	properties?:any
 }
 
 /**
@@ -61,7 +58,7 @@ class TreeNode {
  * @param  {object} parent 父级
  */
 const getJSONTree = (tree:any[], url:string, parent?:any, _transform?:any)=>{
-	
+
 	//文件转json
 	let tile = readFile(input+url);
 	let treeNode = new TreeNode();
@@ -81,11 +78,11 @@ const getJSONTree = (tree:any[], url:string, parent?:any, _transform?:any)=>{
 	}
 	treeNode.level = level;
 	if(!!treeNode.url && !(treeNode.url as any).includes('.json')){
-		let ids = getB3DMData(input+treeNode.url);
-		treeNode.ids = ids;
+		let properties = getB3DMData(input+treeNode.url, formatChecked);
+		treeNode.properties = properties;
 	}
-	
-	
+
+
 	/**
 	 * 内层递归子级
 	 * @param  {object} parent             父节点
@@ -94,10 +91,10 @@ const getJSONTree = (tree:any[], url:string, parent?:any, _transform?:any)=>{
 	 */
 	const loop = (parent:TreeNode, parentNodeChildren:TreeNode[], nodes:any[])=>nodes.map(item=>{
 		let node = new TreeNode();
-		node.box = item.content.boundingVolume && item.content.boundingVolume.box || item.boundingVolume.box;
+		node.box = item.content && item.content.boundingVolume && item.content.boundingVolume.box || item.boundingVolume.box;
 		node.children = [];
-		node.url = item.content.url || item.content.uri || '';
-		node.level = level;
+		node.url = item.content && (item.content.url || item.content.uri) || '';
+		node.level = ++parent.level!;
 		node.type = 'node';
 		node.leaf = false;
 
@@ -117,15 +114,13 @@ const getJSONTree = (tree:any[], url:string, parent?:any, _transform?:any)=>{
 
 		//读取b3dm,cmpt数据
 		if(!(node.url as any).includes('.json')){
-			let ids = getB3DMData(input+node.url);
-			node.ids = ids;
+			let properties = getB3DMData(input+node.url, formatChecked);
+			node.properties = properties;
 		}
-		
+
 		//遍历子级
 		if(item.children && item.children.length){
-			level++;
 			loop(node, node.children, item.children);
-			level--;
 		}else{
 
 			//叶子节点为最终需要使用的位置数据
@@ -133,8 +128,8 @@ const getJSONTree = (tree:any[], url:string, parent?:any, _transform?:any)=>{
 		}
 		parentNodeChildren.push(node);
 	});
-		
-	
+
+
 	loop(treeNode, treeNode.children, tile.root.children || []);
 	tree.push(treeNode);
 }
@@ -165,25 +160,20 @@ class FinalData {
  * 读取
  * @type {[type]}
  */
-export const start = (_input:string, _output:string, _appDataFilename='', _transform:string, _filename='tileset.json', _outputFilename='tree.json' )=>{
+export const start = (_input:string, _output:string, formatChecked:boolean, _transform:string, _filename='tileset.json', _outputFilename='tree.json' )=>{
 	if(!_input || !_output || !_filename) return '路径不存在';
 	input = _input, output = _output, filename = _filename;
+	formatChecked = formatChecked;
 	(global.win as any).webContents.send('reader-start');
 	try{
 		let finalData = new FinalData();
 		getJSONTree(tree, filename, '', _transform);
 		if(!/.*(\.json)$/gim.test(_outputFilename)) _outputFilename+='.json';
 
-		let appData = readFile(_appDataFilename);
-		let categories = [];
-		for(let i in appData.categories){
-			categories.push({id:i, name:appData.categories[i]});
-		}
-
 		clearLoop(tree);
 
 		finalData.tileTree = tree;
-		finalData.categories = categories;
+		// finalData.categories = categories;
 		let str = global.JSON.stringify(finalData, null, "\t");
 		fs.writeFileSync(output+_outputFilename, str);
 		input ='', output='', filename ='', tree.length=0;
@@ -191,7 +181,7 @@ export const start = (_input:string, _output:string, _appDataFilename='', _trans
 	}catch(e){
 		(global.win as any).webContents.send('reader-error', e);
 	}
-	
+
 }
 
 

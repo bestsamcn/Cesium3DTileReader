@@ -163,7 +163,7 @@ export const readFile = (url:string)=>{
 
 
 //读取b3dm数据
-export const getB3DMData = (url:string)=>{
+export const getB3DMData = (url:string, formatChecked?:boolean)=>{
 	if(!url.includes('.b3dm') && !url.includes('.cmpt')) return;
 
 
@@ -183,8 +183,33 @@ export const getB3DMData = (url:string)=>{
 	// let jsonText = textDecoder(uint8Array1);
 	let jsonText2 = textDecoder(uint8Array2);
 	if(jsonText2.length == 1){
-		return {element:'', assembly:'', category:''}
+		return {}
 	}
-	let { HIERARCHY } = JSON.parse(jsonText2);
-	return {element:HIERARCHY.classes[5].instances.element.join(','), assembly:HIERARCHY.classes[6].instances.assembly.join(','), category:HIERARCHY.classes[8].instances.category.join(',')};
+	let parsejson:any;
+	let objReg = /^(\s*{).*(}\s*)$/;
+
+	if (Object.prototype.toString.call(parsejson) !== "[object Object]" && objReg.test(jsonText2)){
+		parsejson = JSON.parse(jsonText2);
+		if(formatChecked){
+			for(let key in parsejson){
+				if(Object.prototype.toString.call(parsejson) !== "[object Object]" && objReg.test(parsejson[key])){
+					parsejson[key] = JSON.parse(parsejson[key]);
+				}
+				if(Object.prototype.toString.call(parsejson[key]) === "[object Array]"){
+					for(let i =0; i<parsejson[key].length; i++){
+						if (Object.prototype.toString.call(parsejson[key][i]) !== "[object Object]" && objReg.test(parsejson[key][i])){
+							parsejson[key][i] = JSON.parse(parsejson[key][i]);
+						}
+					}
+				}
+			}
+		}
+
+		return parsejson;
+	}else{
+		return jsonText2;
+	}
+
+
+
 }

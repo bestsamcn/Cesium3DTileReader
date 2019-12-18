@@ -9,7 +9,8 @@ import $$ from '../utils';
 import { connect } from 'dva';
 import { router } from 'umi';
 import style from './style.less';
-import { Input, Button } from 'antd';
+import { Input, Button, Switch } from 'antd';
+
 import { remote, ipcRenderer } from 'electron';
 
 
@@ -36,7 +37,7 @@ export default class Home extends Base<IProps, {}> {
         isSelectDisabled:false,
         // transform:'1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1',
         transform:'',
-        appDataFilename:''
+		formatChecked:false
     }
 
     //选择
@@ -44,38 +45,38 @@ export default class Home extends Base<IProps, {}> {
 
         let files = await remote.dialog.showOpenDialog({
             title: type == 'input' ? '选择根文件' : '选择输出文件夹',
-            properties: (type == 'input' || type == 'appDataFilename') ? ['openFile'] : ['openDirectory'],
+            properties: (type == 'input') ? ['openFile'] : ['openDirectory'],
             defaultPath: '/Users/<username>/Documents/',
-            filters:(type == 'input' || type == 'appDataFilename') ? [{name: 'json', extensions:['json']}] : [],
+            filters:(type == 'input') ? [{name: 'json', extensions:['json']}] : [],
             buttonLabel: "选择"
         });
-        if(files && files.length){
-            files[0] = files[0].replace(/\\/g, '\/');
+        if(files.filePaths && files.filePaths.length){
+			const file = files.filePaths[0].replace(/\\/g, '\/');
             if(type=='input'){
-                let path = files[0];
-
+                let path = file;
                 let input = path.substring(0, path.lastIndexOf('/')+1);
                 let filename = path.slice( path.lastIndexOf('/')+1)
                 this.setState({path, input, filename});
             }else if(type === 'output'){
-                this.setState({output:files[0]+'/'}); 
-            }else if(type === 'appDataFilename'){
-                this.setState({appDataFilename:files[0]}); 
+				console.log(file, 'path')
+                this.setState({output:file+'/'});
             }
         }
     }
 
     startReader(){
         const { reader } = remote.getGlobal('services');
-        const { input, output, filename, outputFilename, transform, appDataFilename } = this.state;
+        const { input, output, filename, outputFilename, transform, formatChecked } = this.state;
         const treg = /^$|(((\-?\d+(\.\d+)?)\,){15}(\-?\d+(\.\d+)?)$)/gi
         if(!treg.test(transform)){
             return this.props.dispatch({type:'global/setToast', params:{msg:'变换矩阵格式错误'}});
         }
+		console.log(input, output, filename, outputFilename, 'outputFilename')
         if(!input || !output || !filename || !outputFilename){
             return this.props.dispatch({type:'global/setToast', params:{msg:'有未填选项'}});
         }
-        reader.start(input, output, appDataFilename, transform, filename, outputFilename);
+
+        reader.start(input, output, formatChecked, transform, filename, outputFilename);
     }
     componentDidMount(){
         setTimeout(()=>{
@@ -95,15 +96,20 @@ export default class Home extends Base<IProps, {}> {
         },1000);
     }
     onChange(e:any){
+
         this.setState({outputFilename:e.target.value});
     }
     onTransformChange(e:any){
         let transform = e.target.value || '';
         this.setState({transform});
     }
+	onFormatChange(checked:boolean){
+		this.setState({formatChecked:checked});
+	}
     render(){
-        const { input, output, filename, outputFilename, path, transform, appDataFilename } = this.state;
+        const { input, output, filename, outputFilename, path, transform, formatChecked } = this.state;
         const treg = /^$|(((\-?\d+(\.\d+)?)\,){15}(\-?\d+(\.\d+)?)$)/gim;
+		console.log(input, 'input')
         return (
             <div className={style["home"]}>
                 <div className={style.list}>
@@ -122,14 +128,13 @@ export default class Home extends Base<IProps, {}> {
                             <Button onClick={this.openDialog.bind(this, 'input')}>浏览</Button>
                         </li>
                         <li className={style['s-width']}>
-                            <span className={style['span']}>appData文件：</span>
-                            <Input disabled title={appDataFilename} value={appDataFilename} placeholder="选择appData文件"/>
-                            <Button onClick={this.openDialog.bind(this, 'appDataFilename')}>浏览</Button>
-                        </li>
-                        <li className={style['s-width']}>
                             <span className={style['span']}>输出文件夹：</span>
                             <Input disabled title={output} value={output} placeholder="选择输出文件夹"/>
                             <Button onClick={this.openDialog.bind(this, 'output')}>浏览</Button>
+                        </li>
+						<li className={style['s-width']}>
+                            <span className={style['span']}>格式化属性：</span>
+                            <Switch className={style.switch} checked={formatChecked} onChange={this.onFormatChange.bind(this)}/>
                         </li>
                     </ul>
                     <Button onClick={this.startReader.bind(this)} style={{width:300}} disabled={!path  || !outputFilename || !output} type="primary">开始</Button>

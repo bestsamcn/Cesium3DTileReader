@@ -24,7 +24,7 @@ export function getCount() {
 export function getPath() {
     let path = `file://${join($dirname, '..', 'renderer')}/index.html`;
     if (is.dev()) {
-        path = 'http://127.0.0.1:8000/';
+        path = 'http://127.0.0.1:7000/';
     }
     return path;
 }
