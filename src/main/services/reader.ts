@@ -1,6 +1,7 @@
-import { readFile, textDecoder, toArrayBuffer, getB3DMData, createBox } from "../utils";
+import { readFile, textDecoder, toArrayBuffer, createBox } from "../utils";
 import { Matrix4, Cartesian3, Matrix3, TileOrientedBoundingBox } from 'cesium';
 import { ipcMain } from 'electron';
+import { any } from 'prop-types';
 
 const fs = require("fs");
 let tree:any[] = [];
@@ -12,6 +13,11 @@ let input = '';
 let output = '';
 let filename = 'tileset';
 let formatChecked = false;
+let center:{[key:string]:any} = {
+	id:null,
+	transform:null,
+	origin:null
+};
 // if(args.length < 2){
 // 	throw Error('input and output must be defined')
 // }
@@ -78,7 +84,7 @@ const getJSONTree = (tree:any[], url:string, parent?:any, _transform?:any)=>{
 	}
 	treeNode.level = level;
 	if(!!treeNode.url && !(treeNode.url as any).includes('.json')){
-		let properties = getB3DMData(input+treeNode.url, formatChecked);
+		let properties = getB3DMData(input+treeNode.url, formatChecked, treeNode.transform);
 		treeNode.properties = properties;
 	}
 
@@ -114,7 +120,7 @@ const getJSONTree = (tree:any[], url:string, parent?:any, _transform?:any)=>{
 
 		//读取b3dm,cmpt数据
 		if(!(node.url as any).includes('.json')){
-			let properties = getB3DMData(input+node.url, formatChecked);
+			let properties = getB3DMData(input+node.url, formatChecked, node.computedTransform);
 			node.properties = properties;
 		}
 
@@ -150,20 +156,91 @@ const clearLoop = (tree:any)=>tree.forEach((item:any)=>{
 class FinalData {
 	categories?:any[];
 	tileTree?:any[];
+	center?:any;
 	constructor(categories?:any[], tileTree?:any[]){
 		this.categories = categories;
 		this.tileTree = tileTree;
 	};
+}
+//读取b3dm数据
+export const getB3DMData = (url:string, formatChecked:boolean, transform:any)=>{
+	if(!url.includes('.b3dm') && !url.includes('.cmpt')) return;
+
+
+	let b3dmBuffer = fs.readFileSync(url);
+	let ab = toArrayBuffer(b3dmBuffer);
+	let dataView = new DataView(ab);
+	let featureTableJSONByteLength = dataView.getUint32(12, true);
+	let batchTableJsonByteLength = dataView.getUint32(20, true);
+	let byteOffset = 28;
+
+
+	let uint8Array = new Uint8Array(b3dmBuffer);
+
+
+	// let uint8Array1 = uint8Array.subarray(byteOffset, byteOffset + featureTableJSONByteLength);
+	let uint8Array2 = uint8Array.subarray(byteOffset+featureTableJSONByteLength, byteOffset+featureTableJSONByteLength + batchTableJsonByteLength);
+	// let jsonText = textDecoder(uint8Array1);
+	let jsonText2 = textDecoder(uint8Array2);
+	if(jsonText2.length == 1){
+		return {}
+	}
+	let parsejson:any;
+	let objReg = /^(\s*{).*(}\s*)$/;
+
+	if (Object.prototype.toString.call(parsejson) !== "[object Object]" && objReg.test(jsonText2)){
+		parsejson = JSON.parse(jsonText2);
+		if(formatChecked){
+			for(let key in parsejson){
+				if(Object.prototype.toString.call(parsejson) !== "[object Object]" && objReg.test(parsejson[key])){
+					parsejson[key] = JSON.parse(parsejson[key]);
+
+				}
+				if(Object.prototype.toString.call(parsejson[key]) === "[object Array]"){
+					for(let i =0; i<parsejson[key].length; i++){
+						if (Object.prototype.toString.call(parsejson[key][i]) !== "[object Object]" && objReg.test(parsejson[key][i])){
+							parsejson[key][i] = JSON.parse(parsejson[key][i]);
+							if(key === 'attribute'){
+								for(let akey in parsejson[key][i]){
+									const geo = parsejson[key][i][akey];
+									const low = geo["Range Low"];
+									const high = geo["Range High"];
+									const low3 = Cartesian3.fromArray(low.split(','));
+									const high3 = Cartesian3.fromArray(high.split(','));
+									const mid = Cartesian3.midpoint(low3, high3, new Cartesian3());
+									if(!!center.id){
+										if(Cartesian3.magnitude(mid) < Cartesian3.magnitude(Cartesian3.fromArray(center.origin))){
+											center.id = geo['Element ID'];
+											center.transform = Matrix4.toArray(transform);
+											center.origin = [mid.x, mid.y, mid.z];
+										}
+									}else{
+										center.id = geo['Element ID'];
+										center.transform = Matrix4.toArray(transform);
+										center.origin = [mid.x, mid.y, mid.z];
+									};
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
+		return parsejson;
+	}else{
+		return jsonText2;
+	}
 }
 
 /**
  * 读取
  * @type {[type]}
  */
-export const start = (_input:string, _output:string, formatChecked:boolean, _transform:string, _filename='tileset.json', _outputFilename='tree.json' )=>{
+export const start = (_input:string, _output:string, _formatChecked:boolean, _transform:string, _filename='tileset.json', _outputFilename='tree.json' )=>{
 	if(!_input || !_output || !_filename) return '路径不存在';
 	input = _input, output = _output, filename = _filename;
-	formatChecked = formatChecked;
+	formatChecked = _formatChecked;
 	(global.win as any).webContents.send('reader-start');
 	try{
 		let finalData = new FinalData();
@@ -173,6 +250,7 @@ export const start = (_input:string, _output:string, formatChecked:boolean, _tra
 		clearLoop(tree);
 
 		finalData.tileTree = tree;
+		finalData.center = center;
 		// finalData.categories = categories;
 		let str = global.JSON.stringify(finalData, null, "\t");
 		fs.writeFileSync(output+_outputFilename, str);

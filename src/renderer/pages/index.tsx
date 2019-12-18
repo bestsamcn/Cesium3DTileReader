@@ -1,5 +1,5 @@
 /**
- * title: Cecsium3DTileReader
+ * title: Cecsium3DTilesReader
  * routerName: home
  */
 import React from 'react';
@@ -75,7 +75,6 @@ export default class Home extends Base<IProps, {}> {
         if(!input || !output || !filename || !outputFilename){
             return this.props.dispatch({type:'global/setToast', params:{msg:'有未填选项'}});
         }
-
         reader.start(input, output, formatChecked, transform, filename, outputFilename);
     }
     componentDidMount(){
@@ -115,7 +114,7 @@ export default class Home extends Base<IProps, {}> {
                 <div className={style.list}>
                     <ul>
                         <li>
-                            <span className={style['span']}>产出文件名称：</span>
+                            <span className={style['span']}><span style={{color:'red'}}>*</span>产出文件名称：</span>
                             <Input title={outputFilename} style={{borderColor:!outputFilename ? 'red' : ''}} onChange={this.onChange.bind(this)} value={outputFilename} placeholder="输入文件名"/>
                         </li>
                         <li>
@@ -123,12 +122,12 @@ export default class Home extends Base<IProps, {}> {
                             <Input title={transform} style={{borderColor:!treg.test(transform) ? 'red' : ''}} onChange={this.onTransformChange.bind(this)} value={transform} placeholder="1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1"/>
                         </li>
                         <li className={style['s-width']}>
-                            <span className={style['span']}>输入根文件：</span>
+                            <span className={style['span']}><span style={{color:'red'}}>*</span>输入根文件：</span>
                             <Input disabled title={input} value={path} accept=".json" placeholder="选择输入根文件"/>
                             <Button onClick={this.openDialog.bind(this, 'input')}>浏览</Button>
                         </li>
                         <li className={style['s-width']}>
-                            <span className={style['span']}>输出文件夹：</span>
+                            <span className={style['span']}><span style={{color:'red'}}>*</span>输出文件夹：</span>
                             <Input disabled title={output} value={output} placeholder="选择输出文件夹"/>
                             <Button onClick={this.openDialog.bind(this, 'output')}>浏览</Button>
                         </li>

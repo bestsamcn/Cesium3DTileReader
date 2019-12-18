@@ -1,8 +1,8 @@
 {
   "private": true,
   "version": "1.0.1",
-  "description": "cesium 3dtile reader",
-  "name": "cesium-3dtile-reader",
+  "description": "cesium 3dtiles reader",
+  "name": "cesium-3dtiles-reader",
   "scripts": {
     "start:umi": "set APP_ROOT=src/renderer && umi dev",
     "build:umi": "set APP_ROOT=src/renderer && umi build",
@@ -37,7 +37,7 @@
   },
   "build": {
     "copyright": "bestsamcn.me",
-    "productName": "Cesium3DTileReader",
+    "productName": "Cesium3DTilesReader",
     "files": [
       "./dist/**/*",
       "./pages/**/*",
