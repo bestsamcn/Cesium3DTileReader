@@ -37,7 +37,8 @@ export default class Home extends Base<IProps, {}> {
         isSelectDisabled:false,
         // transform:'1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1',
         transform:'',
-		formatChecked:false
+		formatChecked:false,
+		attributes:'id,key',
     }
 
     //选择
@@ -50,8 +51,14 @@ export default class Home extends Base<IProps, {}> {
             filters:(type == 'input') ? [{name: 'json', extensions:['json']}] : [],
             buttonLabel: "选择"
         });
-        if(files.filePaths && files.filePaths.length){
-			const file = files.filePaths[0].replace(/\\/g, '\/');
+		let file = null;
+		if(files.length){
+			file = files[0].replace(/\\/g, '\/');
+		}
+		if(files.filePaths && files.filePaths.length){
+			file = files.filePaths[0].replace(/\\/g, '\/');
+		}
+        if(file){
             if(type=='input'){
                 let path = file;
                 let input = path.substring(0, path.lastIndexOf('/')+1);
@@ -66,16 +73,19 @@ export default class Home extends Base<IProps, {}> {
 
     startReader(){
         const { reader } = remote.getGlobal('services');
-        const { input, output, filename, outputFilename, transform, formatChecked } = this.state;
-        const treg = /^$|(((\-?\d+(\.\d+)?)\,){15}(\-?\d+(\.\d+)?)$)/gi
+        const { input, output, filename, outputFilename, transform, formatChecked, attributes } = this.state;
+        const treg = /^$|(((\-?\d+(\.\d+)?)\,){15}(\-?\d+(\.\d+)?)$)/gi;
+		const areg = /^$|(\w+\,)?\w$/gi;
         if(!treg.test(transform)){
             return this.props.dispatch({type:'global/setToast', params:{msg:'变换矩阵格式错误'}});
         }
-		console.log(input, output, filename, outputFilename, 'outputFilename')
+		if(!areg.test(attributes)){
+            return this.props.dispatch({type:'global/setToast', params:{msg:'属性格式为错误'}});
+        }
         if(!input || !output || !filename || !outputFilename){
             return this.props.dispatch({type:'global/setToast', params:{msg:'有未填选项'}});
         }
-        reader.start(input, output, formatChecked, transform, filename, outputFilename);
+        reader.start(input, output, formatChecked, transform, filename, outputFilename, attributes);
     }
     componentDidMount(){
         setTimeout(()=>{
@@ -89,6 +99,7 @@ export default class Home extends Base<IProps, {}> {
             });
 
             ipcRenderer.on('reader-error', (e:any)=>{
+				console.log(e, 'e')
                 this.props.dispatch({type:'global/setLoading', params:{isLoading:false}});
                 this.props.dispatch({type:'global/setToast', params:{msg:'读取出错'}});
             });
@@ -105,8 +116,12 @@ export default class Home extends Base<IProps, {}> {
 	onFormatChange(checked:boolean){
 		this.setState({formatChecked:checked});
 	}
+	onAttributesChange(e:any){
+		let attributes = e.target.value || '';
+        this.setState({attributes});
+	}
     render(){
-        const { input, output, filename, outputFilename, path, transform, formatChecked } = this.state;
+        const { input, output, filename, outputFilename, path, transform, formatChecked, attributes } = this.state;
         const treg = /^$|(((\-?\d+(\.\d+)?)\,){15}(\-?\d+(\.\d+)?)$)/gim;
 		console.log(input, 'input')
         return (
@@ -130,6 +145,10 @@ export default class Home extends Base<IProps, {}> {
                             <span className={style['span']}><span style={{color:'red'}}>*</span>输出文件夹：</span>
                             <Input disabled title={output} value={output} placeholder="选择输出文件夹"/>
                             <Button onClick={this.openDialog.bind(this, 'output')}>浏览</Button>
+                        </li>
+						<li className={style['s-width']}>
+                            <span className={style['span']}>保留属性：</span>
+                            <Input title={output} value={attributes} onChange={this.onAttributesChange.bind(this)}  placeholder="id,key,..."/>
                         </li>
 						<li className={style['s-width']}>
                             <span className={style['span']}>格式化属性：</span>

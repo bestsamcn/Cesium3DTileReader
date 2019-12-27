@@ -18,6 +18,9 @@ let center:{[key:string]:any} = {
 	transform:null,
 	origin:null
 };
+
+/**保留的属性 */
+let attributes = '';
 // if(args.length < 2){
 // 	throw Error('input and output must be defined')
 // }
@@ -82,10 +85,14 @@ const getJSONTree = (tree:any[], url:string, parent?:any, _transform?:any)=>{
 	if(!tile.root.children || !tile.root.children.length){
 		treeNode.leaf = true;
 	}
-	treeNode.level = level;
+	treeNode.level = parent && parent.level || 0;
 	if(!!treeNode.url && !(treeNode.url as any).includes('.json')){
 		let properties = getB3DMData(input+treeNode.url, formatChecked, treeNode.transform);
 		treeNode.properties = properties;
+	}
+	//读取外部json
+	if(treeNode.url && (treeNode.url as any).includes('.json')){
+		getJSONTree(treeNode.children, (treeNode.url as any), treeNode);
 	}
 
 
@@ -113,9 +120,7 @@ const getJSONTree = (tree:any[], url:string, parent?:any, _transform?:any)=>{
 
 		//读取外部json
 		if(node.url && (node.url as any).includes('.json')){
-			level++;
 			getJSONTree(node.children, (node.url as any), node);
-			level--;
 		}
 
 		//读取b3dm,cmpt数据
@@ -187,47 +192,60 @@ export const getB3DMData = (url:string, formatChecked:boolean, transform:any)=>{
 	}
 	let parsejson:any;
 	let objReg = /^(\s*{).*(}\s*)$/;
+	const returnObj={};
 
 	if (Object.prototype.toString.call(parsejson) !== "[object Object]" && objReg.test(jsonText2)){
 		parsejson = JSON.parse(jsonText2);
-		if(formatChecked){
-			for(let key in parsejson){
-				if(Object.prototype.toString.call(parsejson) !== "[object Object]" && objReg.test(parsejson[key])){
-					parsejson[key] = JSON.parse(parsejson[key]);
+		for(let key in parsejson){
 
-				}
-				if(Object.prototype.toString.call(parsejson[key]) === "[object Array]"){
-					for(let i =0; i<parsejson[key].length; i++){
-						if (Object.prototype.toString.call(parsejson[key][i]) !== "[object Object]" && objReg.test(parsejson[key][i])){
-							parsejson[key][i] = JSON.parse(parsejson[key][i]);
-							if(key === 'attribute'){
-								for(let akey in parsejson[key][i]){
-									const geo = parsejson[key][i][akey];
-									const low = geo["Range Low"];
-									const high = geo["Range High"];
-									const low3 = Cartesian3.fromArray(low.split(','));
-									const high3 = Cartesian3.fromArray(high.split(','));
-									const mid = Cartesian3.midpoint(low3, high3, new Cartesian3());
-									if(!!center.id){
-										if(Cartesian3.magnitude(mid) < Cartesian3.magnitude(Cartesian3.fromArray(center.origin))){
-											center.id = geo['Element ID'];
-											center.transform = Matrix4.toArray(transform);
-											center.origin = [mid.x, mid.y, mid.z];
-										}
-									}else{
+			// if(Object.prototype.toString.call(parsejson) !== "[object Object]" && objReg.test(parsejson[key])){
+			// 	parsejson[key] = JSON.parse(parsejson[key]);
+			// }
+			if(Object.prototype.toString.call(parsejson[key]) === "[object Array]"){
+				for(let i =0; i<parsejson[key].length; i++){
+					if (Object.prototype.toString.call(parsejson[key][i]) !== "[object Object]" && objReg.test(parsejson[key][i])){
+						const tempJson = JSON.parse(parsejson[key][i]);
+						if(key === 'attribute'){
+							for(let akey in tempJson){
+								const geo = tempJson[akey];
+								let low = geo["Range Low"];
+								let high = geo["Range High"];
+								low = low.split(',').map((item:string)=>parseFloat(item));
+								high = high.split(',').map((item:string)=>parseFloat(item));
+								const low3 = Cartesian3.fromArray(low);
+								const high3 = Cartesian3.fromArray(high);
+								const mid = Cartesian3.midpoint(low3, high3, new Cartesian3());
+								if(!!center.id){
+									if(Cartesian3.magnitude(mid) < Cartesian3.magnitude(Cartesian3.fromArray(center.origin))){
 										center.id = geo['Element ID'];
 										center.transform = Matrix4.toArray(transform);
 										center.origin = [mid.x, mid.y, mid.z];
-									};
-								}
+									}
+								}else{
+									center.id = geo['Element ID'];
+									center.transform = Matrix4.toArray(transform);
+									center.origin = [mid.x, mid.y, mid.z];
+								};
 							}
 						}
 					}
 				}
 			}
+
+			/**只保留需要的属性 */
+			if(attributes.includes(key)){
+
+				//为json字符串
+				if(formatChecked && Object.prototype.toString.call(parsejson) !== "[object Object]" && objReg.test(parsejson[key])){
+					returnObj[key] = JSON.parse(parsejson[key]);
+				}else{
+					returnObj[key] = parsejson[key];
+				}
+
+			};
 		}
 
-		return parsejson;
+		return returnObj;
 	}else{
 		return jsonText2;
 	}
@@ -237,10 +255,11 @@ export const getB3DMData = (url:string, formatChecked:boolean, transform:any)=>{
  * 读取
  * @type {[type]}
  */
-export const start = (_input:string, _output:string, _formatChecked:boolean, _transform:string, _filename='tileset.json', _outputFilename='tree.json' )=>{
+export const start = (_input:string, _output:string, _formatChecked:boolean, _transform:string, _filename='tileset.json', _outputFilename='tree.json', _attributes:string )=>{
 	if(!_input || !_output || !_filename) return '路径不存在';
 	input = _input, output = _output, filename = _filename;
 	formatChecked = _formatChecked;
+	attributes = _attributes.split(',');
 	(global.win as any).webContents.send('reader-start');
 	try{
 		let finalData = new FinalData();
