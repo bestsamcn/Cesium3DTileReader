@@ -1,12 +1,8 @@
 import { readFile, textDecoder, toArrayBuffer, createBox } from "../utils";
-import { Matrix4, Cartesian3, Matrix3, TileOrientedBoundingBox } from 'cesium';
-import { ipcMain } from 'electron';
-import { any } from 'prop-types';
+import { Matrix4, Cartesian3 } from 'cesium';
 
 const fs = require("fs");
-let tree:any[] = [];
-let level = 0;
-let transform = null;
+const tree:any[] = [];
 
 // const args = process.argv.slice(2);
 let input = '';
@@ -20,7 +16,7 @@ let center:{[key:string]:any} = {
 };
 
 /**保留的属性 */
-let attributes = '';
+let attributes:string[] = [];
 // if(args.length < 2){
 // 	throw Error('input and output must be defined')
 // }
@@ -62,11 +58,14 @@ class TreeNode {
 
 /**
  * 外层递归json
- * @param  {array} tree   结果集
- * @param  {string} url    	json地址
- * @param  {object} parent 父级
+ * @param tree 全局保存的树
+ * @param url 路径
+ * @param parent 父级
+ * @param _transform 矩阵
  */
 const getJSONTree = (tree:any[], url:string, parent?:any, _transform?:any)=>{
+
+	console.log('正在读取JSON：'+url);
 
 	//文件转json
 	let tile = readFile(input+url);
@@ -85,9 +84,9 @@ const getJSONTree = (tree:any[], url:string, parent?:any, _transform?:any)=>{
 	if(!tile.root.children || !tile.root.children.length){
 		treeNode.leaf = true;
 	}
-	treeNode.level = parent && parent.level || 0;
+	treeNode.level = parent && (parent.level+1) || 0;
 	if(!!treeNode.url && !(treeNode.url as any).includes('.json')){
-		let properties = getB3DMData(input+treeNode.url, formatChecked, treeNode.transform);
+		let properties = getB3DMData(input+treeNode.url, formatChecked, treeNode.computedTransform);
 		treeNode.properties = properties;
 	}
 	//读取外部json
@@ -103,17 +102,17 @@ const getJSONTree = (tree:any[], url:string, parent?:any, _transform?:any)=>{
 	 * @param  {array} nodes              需要递归的节点树
 	 */
 	const loop = (parent:TreeNode, parentNodeChildren:TreeNode[], nodes:any[])=>nodes.map(item=>{
-		let node = new TreeNode();
+		const node = new TreeNode();
 		node.box = item.content && item.content.boundingVolume && item.content.boundingVolume.box || item.boundingVolume.box;
 		node.children = [];
 		node.url = item.content && (item.content.url || item.content.uri) || '';
-		node.level = ++parent.level!;
+		node.level = (parent.level!+1);
 		node.type = 'node';
 		node.leaf = false;
 
-		node.transform = Matrix4.clone(Matrix4.IDENTITY);
+		node.transform = item.transform && Matrix4.unpack(item.transform) || Matrix4.clone(Matrix4.IDENTITY);
 
-        var parentTransform = parent ? parent.computedTransform : Matrix4.clone(Matrix4.IDENTITY);
+        const parentTransform = parent ? parent.computedTransform : Matrix4.clone(Matrix4.IDENTITY);
         node.computedTransform = Matrix4.multiply(parentTransform, node.transform, new Matrix4());
         node.boundingSphere = createBox((node.box as any[]), node.computedTransform);
 
@@ -140,21 +139,19 @@ const getJSONTree = (tree:any[], url:string, parent?:any, _transform?:any)=>{
 		parentNodeChildren.push(node);
 	});
 
-
 	loop(treeNode, treeNode.children, tile.root.children || []);
 	tree.push(treeNode);
 }
 
-// const dirs = fs.readdirSync(input);
 
-//清除多余属性
-const clearLoop = (tree:any)=>tree.forEach((item:any)=>{
+//清除多余的属性
+const clearAttrByLoop = (tree:any)=>tree.forEach((item:any)=>{
 	item.transform && delete item.transform;
 	item.box && delete item.box;
 	item.url && delete item.url;
 	item.computedTransform && delete item.computedTransform;
 	if(item.children && item.children.length){
-		clearLoop(item.children);
+		clearAttrByLoop(item.children);
 	}
 });
 
@@ -167,44 +164,53 @@ class FinalData {
 		this.tileTree = tileTree;
 	};
 }
-//读取b3dm数据
+
+/**
+ * 读取b3dm数据
+ * @param url 文件绝对路径
+ * @param formatChecked 是否格式化属性
+ * @param transform 变换矩阵
+ */
 export const getB3DMData = (url:string, formatChecked:boolean, transform:any)=>{
 	if(!url.includes('.b3dm') && !url.includes('.cmpt')) return;
+	console.log('正在读取瓦片：'+url);
 
+	const b3dmBuffer = fs.readFileSync(url);
+	const ab = toArrayBuffer(b3dmBuffer);
+	const dataView = new DataView(ab);
+	const featureTableJSONByteLength = dataView.getUint32(12, true);
+	const batchTableJsonByteLength = dataView.getUint32(20, true);
 
-	let b3dmBuffer = fs.readFileSync(url);
-	let ab = toArrayBuffer(b3dmBuffer);
-	let dataView = new DataView(ab);
-	let featureTableJSONByteLength = dataView.getUint32(12, true);
-	let batchTableJsonByteLength = dataView.getUint32(20, true);
-	let byteOffset = 28;
+	/**featureTable开始位置 */
+	const byteOffset = 28;
 
+	/**magic-version-bufferLength-featureJSON-featureByte-batchJSON-batchByte-featureTable-batchTable-glb */
 
-	let uint8Array = new Uint8Array(b3dmBuffer);
-
-
+	const uint8Array = new Uint8Array(b3dmBuffer);
 	// let uint8Array1 = uint8Array.subarray(byteOffset, byteOffset + featureTableJSONByteLength);
-	let uint8Array2 = uint8Array.subarray(byteOffset+featureTableJSONByteLength, byteOffset+featureTableJSONByteLength + batchTableJsonByteLength);
+
+	/**直接读取batchTable数据 */
+	const uint8Array2 = uint8Array.subarray(byteOffset+featureTableJSONByteLength, byteOffset+featureTableJSONByteLength + batchTableJsonByteLength);
 	// let jsonText = textDecoder(uint8Array1);
-	let jsonText2 = textDecoder(uint8Array2);
+	const jsonText2 = textDecoder(uint8Array2);
 	if(jsonText2.length == 1){
 		return {}
 	}
-	let parsejson:any;
-	let objReg = /^(\s*{).*(}\s*)$/;
-	const returnObj={};
+	const parsejson ={};
+	const objReg = /^(\s*{).*(}\s*)$/;
+	const returnObj = {};
 
 	if (Object.prototype.toString.call(parsejson) !== "[object Object]" && objReg.test(jsonText2)){
 		parsejson = JSON.parse(jsonText2);
 		for(let key in parsejson){
 
-			// if(Object.prototype.toString.call(parsejson) !== "[object Object]" && objReg.test(parsejson[key])){
-			// 	parsejson[key] = JSON.parse(parsejson[key]);
-			// }
 			if(Object.prototype.toString.call(parsejson[key]) === "[object Array]"){
 				for(let i =0; i<parsejson[key].length; i++){
 					if (Object.prototype.toString.call(parsejson[key][i]) !== "[object Object]" && objReg.test(parsejson[key][i])){
 						const tempJson = JSON.parse(parsejson[key][i]);
+
+
+						/**读取构件包围盒-没什么乱用 */
 						if(key === 'attribute'){
 							for(let akey in tempJson){
 								const geo = tempJson[akey];
@@ -238,8 +244,12 @@ export const getB3DMData = (url:string, formatChecked:boolean, transform:any)=>{
 				//为json字符串
 				if(formatChecked && Object.prototype.toString.call(parsejson) !== "[object Object]" && objReg.test(parsejson[key])){
 					returnObj[key] = JSON.parse(parsejson[key]);
+
 				}else{
 					returnObj[key] = parsejson[key];
+					if(Object.prototype.toString.call(parsejson[key]) === "[object Array]") {
+						returnObj[key+'Cout'] = returnObj[key].length;
+					}
 				}
 
 			};
@@ -252,8 +262,14 @@ export const getB3DMData = (url:string, formatChecked:boolean, transform:any)=>{
 }
 
 /**
- * 读取
- * @type {[type]}
+ *
+ * @param _input 输入目录
+ * @param _output 输出目录
+ * @param _formatChecked 是否格式话属性
+ * @param _transform 变换矩阵
+ * @param _filename 入口文件文件名
+ * @param _outputFilename 输出文件名
+ * @param _attributes 构件需要保存的属性
  */
 export const start = (_input:string, _output:string, _formatChecked:boolean, _transform:string, _filename='tileset.json', _outputFilename='tree.json', _attributes:string )=>{
 	if(!_input || !_output || !_filename) return '路径不存在';
@@ -262,21 +278,23 @@ export const start = (_input:string, _output:string, _formatChecked:boolean, _tr
 	attributes = _attributes.split(',');
 	(global.win as any).webContents.send('reader-start');
 	try{
-		let finalData = new FinalData();
+		const finalData = new FinalData();
 		getJSONTree(tree, filename, '', _transform);
-		if(!/.*(\.json)$/gim.test(_outputFilename)) _outputFilename+='.json';
 
-		clearLoop(tree);
+		if(!/.*(\.json)$/gim.test(_outputFilename)) _outputFilename+='.json';
+		clearAttrByLoop(tree);
 
 		finalData.tileTree = tree;
 		finalData.center = center;
-		// finalData.categories = categories;
+
 		let str = global.JSON.stringify(finalData, null, "\t");
 		fs.writeFileSync(output+_outputFilename, str);
 		input ='', output='', filename ='', tree.length=0;
-		(global.win as any).webContents.send('reader-success');
+		console.log('读取成功：'+output+_outputFilename);
+		global.win && (global.win as any).webContents.send('reader-success');
 	}catch(e){
-		(global.win as any).webContents.send('reader-error', e);
+		console.log('读取失败：', e);
+		global.win && (global.win as any).webContents.send('reader-error', e);
 	}
 
 }

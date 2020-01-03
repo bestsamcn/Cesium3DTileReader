@@ -20,7 +20,8 @@
     "pack:dir": "npm run build && npm run rebuild && electron-builder --dir",
     "pack:dirOnly": "electron-builder --dir",
     "rebuild": "electron-rebuild -m ./app",
-    "push": "git add . && git commit -m \"daily\" && git push origin master"
+    "push": "git add . && git commit -m \"daily\" && git push origin master",
+	"build:reader":"set ESLINT=none&&roadhog build --inspect webpack.node.js"
   },
   "nodemonConfig": {
     "delay": "2500"

@@ -30,4 +30,4 @@ export default function(webpackConfig, {webpack}) {
     );
     return webpackConfig;
 }
-;
+

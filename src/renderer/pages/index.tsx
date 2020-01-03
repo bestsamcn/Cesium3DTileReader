@@ -38,7 +38,7 @@ export default class Home extends Base<IProps, {}> {
         // transform:'1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1',
         transform:'',
 		formatChecked:false,
-		attributes:'id,key',
+		attributes:'key',
     }
 
     //选择

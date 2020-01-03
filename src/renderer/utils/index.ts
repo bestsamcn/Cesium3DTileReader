@@ -6,6 +6,7 @@ let clocktimer:any;
 
 export default class Tool {
 
+
     /**
      * 是否是移动端
      * @type {Boolean}
@@ -435,8 +436,8 @@ export default class Tool {
                 // let's do this
 
                 clocktimer && clearInterval(clocktimer);
-                clocktimer = setInterval(loop, FRAME_RATE); 
-                
+                clocktimer = setInterval(loop, FRAME_RATE);
+
             },
 
             ui: function() {
@@ -641,7 +642,7 @@ class Particle {
         this.px = (canvas.width / 2) + (Math.cos(this.range) * this.spread);
         this.py = (canvas.height / 2) + (Math.sin(this.range) * this.spread);
         this.origSize = this.size;
-        
+
     }
 }
 
